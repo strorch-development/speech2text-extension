@@ -11,6 +11,12 @@ const Speech2TextInterface = `
       <arg direction="in" type="s" name="device" />
       <arg direction="out" type="b" name="success" />
     </method>
+    <method name="SetRemoteConfig">
+      <arg direction="in" type="b" name="enabled" />
+      <arg direction="in" type="s" name="url" />
+      <arg direction="in" type="s" name="api_key" />
+      <arg direction="out" type="b" name="success" />
+    </method>
     <method name="StartRecording">
       <arg direction="in" type="i" name="duration" />
       <arg direction="in" type="b" name="copy_to_clipboard" />
@@ -283,6 +289,32 @@ export class DBusManager {
         return false;
       }
       throw new Error(`Failed to set Whisper config: ${msg}`);
+    }
+  }
+
+  async setRemoteConfig(enabled, url, apiKey) {
+    const connectionReady = await this.ensureConnection();
+    if (!connectionReady || !this.dbusProxy) {
+      throw new Error("D-Bus connection not available");
+    }
+
+    try {
+      const [success] = await this.dbusProxy.SetRemoteConfigAsync(
+        Boolean(enabled),
+        String(url || ""),
+        String(apiKey || "")
+      );
+      if (!success) {
+        throw new Error("Service rejected remote settings");
+      }
+      return success;
+    } catch (e) {
+      // Backwards compatibility: older service versions don't implement SetRemoteConfig.
+      const msg = String(e?.message || e);
+      if (msg.includes("UnknownMethod") || msg.includes("could not be found")) {
+        return false;
+      }
+      throw new Error(`Failed to set remote config: ${msg}`);
     }
   }
 

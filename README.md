@@ -20,7 +20,7 @@ using OpenAI's automated speech recognition [Whisper](https://github.com/openai/
 - 🖱️ **Click to Record** from top panel microphone icon
 - ⌨️ **Keyboard Shortcut** support (default: Alt+Super+R)
 - 🌍 **Multi-language Support** (depending on Whisper model)
-- 🔒 **Privacy-First** - All processing happens locally
+- 🔒 **Privacy-First** - By default, all processing happens locally (optional remote GPU server supported)
 - ⌨️ **Automatic Text Insertion** at cursor location (only on X11)
 - 🔄 **Non-blocking Mode** - Continue working while transcription processes in the background
 
@@ -113,6 +113,34 @@ For instance if you wanted to run the whisper model 'medium' and use 'gpu' proce
 ```bash
 curl -sSL https://raw.githubusercontent.com/kavehtehrani/speech2text-extension/refs/heads/main/service/install-service.sh | bash -s -- --pypi --non-interactive --service-version 1.2.0 --gpu --whisper-model medium
 ```
+
+### Remote GPU server (optional)
+
+If you want to run a higher-quality Whisper model on a **separate machine** (e.g. a desktop with an NVIDIA GPU) and use the GNOME extension from your laptop, you can run the optional **remote server** on the GPU box and configure the local service to forward audio to it.
+
+On the **GPU machine**:
+
+```bash
+# In a venv of your choice
+pip install "speech2text-extension-service[server]"
+
+# Start the server (binds to 0.0.0.0:8090 by default)
+speech2text-extension-remote-server --model large-v3 --device cuda --port 8090
+
+# Optional: require an API key
+SPEECH2TEXT_SERVER_API_KEY='change-me' speech2text-extension-remote-server --model large-v3 --device cuda
+```
+
+On the **GNOME laptop** (where the extension runs), enable remote mode via gsettings and restart the D-Bus service (or restart GNOME Shell):
+
+```bash
+gsettings set org.gnome.shell.extensions.speech2text remote-enabled true
+gsettings set org.gnome.shell.extensions.speech2text remote-url 'http://<GPU_MACHINE_IP>:8090'
+# Optional, if the server is started with an API key:
+gsettings set org.gnome.shell.extensions.speech2text remote-api-key 'change-me'
+```
+
+The local service will then call `POST <remote-url>/v1/transcribe` with raw WAV audio and use the returned text.
 
 Notes about installers and distributions:
 

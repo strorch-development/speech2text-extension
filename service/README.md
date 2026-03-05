@@ -130,7 +130,11 @@ speech2text-extension-service
 
 ### Configuration
 
-The service uses OpenAI's Whisper model locally for speech recognition. No API key is required. All processing happens on your local machine for complete privacy.
+By default, the service uses OpenAI's Whisper model **locally** for speech recognition. No API key is required. All processing happens on your local machine for complete privacy.
+
+This fork also supports an optional **remote forwarding** mode: audio is recorded locally, then sent to a remote HTTP server that runs Whisper on a different machine (e.g. a GPU desktop).
+
+See: [REMOTE_SERVER.md](./REMOTE_SERVER.md)
 
 **Model and Device Configuration**
 
