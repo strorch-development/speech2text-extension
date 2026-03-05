@@ -45,6 +45,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Optional HTTP server (remote GPU box)
+server = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+]
+
 dev = [
     "build",
     "twine",
@@ -59,6 +65,7 @@ Documentation = "https://github.com/kavehtehrani/speech2text-extension/blob/main
 
 [project.scripts]
 speech2text-extension-service = "gnome_speech2text_service.cli:main"
+speech2text-extension-remote-server = "gnome_speech2text_service.remote_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

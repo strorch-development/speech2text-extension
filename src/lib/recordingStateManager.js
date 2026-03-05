@@ -38,6 +38,11 @@ export class RecordingStateManager {
       const whisperModel = installed.model || "base";
       const whisperDevice = installed.device || "cpu";
 
+      // Optional: remote transcription forwarding (audio is recorded locally, then sent to a remote server)
+      const remoteEnabled = settings.get_boolean("remote-enabled");
+      const remoteUrl = settings.get_string("remote-url");
+      const remoteApiKey = settings.get_string("remote-api-key");
+
       // Always use preview mode for D-Bus service (it just controls service behavior)
       // We'll handle the skip-preview logic in the extension when we get the transcription
       const previewMode = true;
@@ -48,6 +53,27 @@ export class RecordingStateManager {
 
       if (!this.dbusManager) {
         console.error("RecordingStateManager: dbusManager is null");
+        return false;
+      }
+
+      // Apply remote forwarding config first (so the service knows where to send audio).
+      try {
+        const appliedRemote = await this.dbusManager.setRemoteConfig(
+          remoteEnabled,
+          remoteUrl,
+          remoteApiKey
+        );
+        if (!appliedRemote) {
+          if (remoteEnabled) {
+            log.warn(
+              "Service does not support SetRemoteConfig; remote transcription requires service upgrade."
+            );
+            return false;
+          }
+          // If remote is disabled, it's fine if the method doesn't exist.
+        }
+      } catch (e) {
+        console.error(`Failed to set remote config: ${e.message}`);
         return false;
       }
 

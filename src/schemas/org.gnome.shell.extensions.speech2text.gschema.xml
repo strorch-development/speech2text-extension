@@ -27,5 +27,22 @@
             <summary>Non-blocking transcription</summary>
             <description>If enabled, the extension will show a small non-blocking “Transcribing…” window while processing your audio, so you can keep using your computer. A notification will be shown when transcription finishes.</description>
         </key>
+
+        <!-- Remote transcription (optional): forward recorded audio to a remote GPU machine -->
+        <key name="remote-enabled" type="b">
+            <default>false</default>
+            <summary>Use remote transcription server</summary>
+            <description>If enabled, the local Speech2Text service will forward audio to a remote HTTP server instead of running Whisper locally.</description>
+        </key>
+        <key name="remote-url" type="s">
+            <default>'http://127.0.0.1:8090'</default>
+            <summary>Remote transcription server URL</summary>
+            <description>Base URL of the remote server (e.g. http://192.168.1.10:8090). The service will call /v1/transcribe.</description>
+        </key>
+        <key name="remote-api-key" type="s">
+            <default>''</default>
+            <summary>Remote server API key</summary>
+            <description>Optional API key sent as X-Api-Key header to the remote server. Stored in GNOME settings (dconf).</description>
+        </key>
     </schema>
 </schemalist>

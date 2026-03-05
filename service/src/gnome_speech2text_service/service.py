@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import json
 import math
 import os
 import signal
@@ -10,6 +11,8 @@ import syslog
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 import wave
 from array import array
@@ -47,6 +50,13 @@ class Speech2TextService(ServiceInterface):
         self.whisper_model = None
         self.whisper_model_name = "base"
         self.whisper_device = "cpu"  # "cpu" or "gpu" (maps to whisper device "cpu"/"cuda")
+
+        # Optional remote forwarding: if enabled, audio is sent to a remote HTTP server for transcription.
+        self.remote_enabled = False
+        self.remote_url = ""
+        self.remote_api_key = ""
+        self.remote_timeout_seconds = 120
+
         self.dependencies_checked = False
         self.missing_deps = []
 
@@ -582,6 +592,53 @@ class Speech2TextService(ServiceInterface):
         finally:
             self._cleanup_recording(recording_id)
 
+    def _remote_transcribe_wav(self, wav_path: str) -> str:
+        """Send a WAV file to the configured remote server and return transcribed text."""
+        base = (self.remote_url or "").strip().rstrip("/")
+        if not base:
+            raise RuntimeError("Remote transcription enabled but remote_url is empty")
+
+        url = f"{base}/v1/transcribe"
+        syslog.syslog(syslog.LOG_INFO, f"Remote transcription request: {url}")
+
+        try:
+            with open(wav_path, "rb") as f:
+                data = f.read()
+        except Exception as e:
+            raise RuntimeError(f"Failed to read audio for remote transcription: {e}")
+
+        headers = {
+            "Content-Type": "audio/wav",
+            "Accept": "application/json",
+        }
+        if (self.remote_api_key or "").strip():
+            headers["X-Api-Key"] = self.remote_api_key.strip()
+
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.remote_timeout_seconds) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            err_body = ""
+            try:
+                err_body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            raise RuntimeError(f"Remote server HTTP error {e.code}: {err_body or e.reason}")
+        except Exception as e:
+            raise RuntimeError(f"Remote server request failed: {e}")
+
+        try:
+            parsed = json.loads(body)
+        except Exception as e:
+            raise RuntimeError(f"Remote server returned invalid JSON: {e}; body={body[:500]}")
+
+        text = str(parsed.get("text") or "").strip()
+        if not text:
+            raise RuntimeError("Remote server returned empty transcription")
+        return text
+
     def _transcribe_audio(self, recording_id):
         """Transcribe recorded audio."""
         recording_info = self.active_recordings.get(recording_id)
@@ -612,11 +669,14 @@ class Speech2TextService(ServiceInterface):
             syslog.syslog(syslog.LOG_INFO, f"Starting transcription for recording {recording_id}")
             started = time.time()
 
-            model = self._load_whisper_model()
-            # fp16 is only meaningful/beneficial on GPU; keep it off for CPU.
-            use_fp16 = self.whisper_device == "gpu"
-            result = model.transcribe(audio_file, fp16=use_fp16)
-            text = result["text"].strip()
+            if self.remote_enabled and (self.remote_url or "").strip():
+                text = self._remote_transcribe_wav(audio_file)
+            else:
+                model = self._load_whisper_model()
+                # fp16 is only meaningful/beneficial on GPU; keep it off for CPU.
+                use_fp16 = self.whisper_device == "gpu"
+                result = model.transcribe(audio_file, fp16=use_fp16)
+                text = result["text"].strip()
 
             if not text:
                 recording_info["status"] = "failed"
@@ -690,6 +750,27 @@ class Speech2TextService(ServiceInterface):
             return True
         except Exception as e:
             syslog.syslog(syslog.LOG_ERR, f"Failed to set Whisper config: {e}")
+            return False
+
+    @method()
+    def SetRemoteConfig(self, enabled: "b", url: "s", api_key: "s") -> "b":
+        """Enable/disable remote transcription forwarding and set server parameters."""
+        try:
+            self.remote_enabled = bool(enabled)
+            self.remote_url = str(url or "").strip()
+            self.remote_api_key = str(api_key or "").strip()
+
+            # Dependencies may change in practice (remote mode doesn't require GPU/CUDA).
+            self.dependencies_checked = False
+            self.missing_deps = []
+
+            syslog.syslog(
+                syslog.LOG_INFO,
+                f"Remote config set: enabled={self.remote_enabled}, url={self.remote_url}",
+            )
+            return True
+        except Exception as e:
+            syslog.syslog(syslog.LOG_ERR, f"Failed to set remote config: {e}")
             return False
 
     @method()
@@ -807,9 +888,16 @@ class Speech2TextService(ServiceInterface):
                 ]
             )
 
+            remote_flag = "1" if (self.remote_enabled and (self.remote_url or "").strip()) else "0"
+            remote_host = (self.remote_url or "").strip().split("?")[0]
+            # Avoid logging credentials in status output.
+            if remote_host:
+                remote_host = remote_host.replace(self.remote_api_key or "", "***")
+
             return (
                 f"ready:active_recordings={active_count},"
-                f"model={self.whisper_model_name},device={self.whisper_device}"
+                f"model={self.whisper_model_name},device={self.whisper_device},"
+                f"remote={remote_flag},remote_url={remote_host}"
             )
 
         except Exception as e:
