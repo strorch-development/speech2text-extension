@@ -35,14 +35,30 @@ API:
 
 ## Client: configure on the GNOME laptop
 
-Enable remote mode in GNOME settings:
+Install the GNOME extension first so the `org.gnome.shell.extensions.speech2text`
+schema exists, then enable remote mode in GNOME settings:
 
 ```bash
-gsettings set org.gnome.shell.extensions.speech2text remote-enabled true
-gsettings set org.gnome.shell.extensions.speech2text remote-url 'http://<GPU_MACHINE_IP>:8090'
+# From this repository on the GNOME laptop:
+make install
+
+SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/gnome-speech2text@kaveh.page/schemas"
+
+# Optional: verify the schema files are installed
+ls -la "$SCHEMA_DIR"
+
+GSETTINGS_SCHEMA_DIR="$SCHEMA_DIR" \
+  gsettings set org.gnome.shell.extensions.speech2text remote-enabled true
+GSETTINGS_SCHEMA_DIR="$SCHEMA_DIR" \
+  gsettings set org.gnome.shell.extensions.speech2text remote-url 'http://<GPU_MACHINE_IP>:8090'
 # Optional, if server uses an API key:
-gsettings set org.gnome.shell.extensions.speech2text remote-api-key 'change-me'
+GSETTINGS_SCHEMA_DIR="$SCHEMA_DIR" \
+  gsettings set org.gnome.shell.extensions.speech2text remote-api-key 'change-me'
 ```
+
+If `gsettings` prints `No such schema "org.gnome.shell.extensions.speech2text"`, the
+extension is not installed yet, its schemas have not been compiled on that machine, or
+`GSETTINGS_SCHEMA_DIR` does not point at the extension's `schemas/` directory.
 
 Then restart the D-Bus service (or restart GNOME Shell):
 

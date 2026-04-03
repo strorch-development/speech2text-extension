@@ -18,3 +18,9 @@
 **/*.pyo
 **/*.pyd
 /service/src/speech2text_extension_service.egg-info/
+
+# Deployment secrets — copy from .env.example and fill locally
+service/.env
+
+# Local private deployment bundle
+private/
