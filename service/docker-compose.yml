@@ -1,0 +1,15 @@
+services:
+  speech2text-remote:
+    build:
+      context: .
+    image: speech2text-remote:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8090}:${APP_PORT:-8090}"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "${APP_PORT:-8090}"
+      WHISPER_MODEL: "${WHISPER_MODEL:-small.en}"
+      WHISPER_DEVICE: "${WHISPER_DEVICE:-cpu}"
+      WHISPER_COMPUTE_TYPE: "${WHISPER_COMPUTE_TYPE:-int8}"
+      SPEECH2TEXT_SERVER_API_KEY: "${SPEECH2TEXT_SERVER_API_KEY:-}"

@@ -96,4 +96,5 @@ dbus-send --session --dest=org.gnome.Shell.Extensions.Speech2Text \
 
 ## Remote Deployment
 
-Private deployment notes and scripts are kept outside the tracked repository.
+Generic container files live in `service/` (`Dockerfile`, `.dockerignore`, `docker-compose.yml`, `.env.example`).
+Private deployment notes and provider-specific scripts stay outside the tracked repository.
